@@ -32,6 +32,8 @@ totaldrivenumber = 0
 totalconfdrivenumber = 0
 totalunconfdrivenumber = 0
 
+oldsyntax = True
+
 # Hardcode a max of 16 HBA and 128 LDs for now. LDTable must be initialized to accept populating list of LD's into each ctlr's list.
 MaxNumHBA = 16
 MaxNumLD = 128
@@ -174,13 +176,24 @@ def AddDisk(mytable, disk):
 def returnControllerNumber(output):
     for line in output:
         if re.match(r"^Controller Count.*$", line.strip()):
-            return int(line.split(":")[1].strip().strip("."))
+            if line.find(":")>=0:
+                return int(line.split(":")[1].strip().strip("."))
+            else:
+                if line.find("=")>=0:
+                    oldsyntax = False
+                    return int(line.split("=")[1].strip().strip("."))    
 
 
 def returnTotalDriveNumber(output):
     for line in output:
-        if re.match(r"Number of Physical Drives on Adapter.*$", line.strip()):
-            return int(line.split(":")[1].strip())
+        if oldsyntax:
+            if re.match(r"^Number of Physical Drives on Adapter.*$", line.strip()):
+                if line.find(":")>=0:
+                    return int(line.split(":")[1].strip().strip("."))
+        else:
+            if re.match(r"^Physical Drives.*$", line.strip()):
+                if line.find("=")>=0:
+                    return int(line.split("=")[1].strip().strip(".")) 
 
 
 def returnRebuildProgress(output):
@@ -223,21 +236,36 @@ def returnUnConfDriveNumber(output):
 
 def returnControllerModel(output):
     for line in output:
-        if re.match(r"^Product Name.*$", line.strip()):
-            return line.split(":")[1].strip()
-
+        if oldsyntax:
+            if re.match(r"^Product Name.*$", line.strip()):
+                if line.find(":")>=0:
+                    return line.split(":")[1].strip()
+        else:
+            if re.match(r"^Model.*$", line.strip()):
+                if line.find("=")>=0:
+                    return line.split("=")[1].strip()
 
 def returnMemorySize(output):
     for line in output:
-        if re.match(r"^Memory Size.*$", line.strip()):
-            return line.split(":")[1].strip()
-
+        if oldsyntax:
+            if re.match(r"^Memory Size.*$", line.strip()):
+                if line.find(":")>=0:
+                    return line.split(":")[1].strip()
+        else:
+            if re.match(r"^On Board Memory Size.*$", line.strip()):
+                if line.find("=")>=0:
+                    return line.split("=")[1].strip()
 
 def returnFirmwareVersion(output):
     for line in output:
-        if re.match(r"^FW Package Build.*$", line.strip()):
-            return line.split(":")[1].strip()
-
+        if oldsyntax:
+            if re.match(r"^FW Package Build.*$", line.strip()):
+                if line.find(":")>=0:
+                    return line.split(":")[1].strip()
+        else:
+            if re.match(r"^Firmware Package Build.*$", line.strip()):
+                if line.find("=")>=0:
+                    return line.split("=")[1].strip()
 
 def returnROCTemp(output):
     ROCtemp = ""
@@ -246,9 +274,16 @@ def returnROCTemp(output):
         return str("N/A")
     else:
         for line in output:
-            if re.match(r"^ROC temperature :.*$", line.strip()):
-                tmpstr = line.split(":")[1].strip()
-                ROCtemp = re.sub(" +.*$", "", tmpstr)
+            if re.match(r"^ROC temperature.*$", line.strip()):
+                if oldsyntax:
+                    if line.find(":")>=0:
+                        tmpstr = line.split(":")[1].strip()
+                        ROCtemp = re.sub(" +.*$", "", tmpstr)
+                        break
+                else:
+                    if line.find("=")>=0:
+                        ROCtemp = line.split("=")[1].strip()
+                        break
         if ROCtemp != "":
             return str(str(ROCtemp) + "C")
         else:
@@ -259,10 +294,18 @@ def returnBBUPresence(output):
     BBU = ""
     tmpstr = ""
     for line in output:
-        if re.match(r"^BBU +:.*$", line.strip()):
-            tmpstr = line.split(":")[1].strip()
-            BBU = re.sub(" +.*$", "", tmpstr)
-            break
+        if re.match(r"^BBU +[:=].*$", line.strip()):
+            if oldsyntax:
+                if line.find(":")>=0:
+                    tmpstr = line.split(":")[1].strip()
+                    BBU = re.sub(" +.*$", "", tmpstr)
+                    break
+            else:
+                if line.find("=")>=0:
+                    tmpstr = line.split("=")[1].strip()
+                    if (tmpstr != "Yes") and (tmpstr != "No"):
+                        BBU = tmpstr
+                        break
     if BBU != "":
         return str(BBU)
     else:
@@ -273,10 +316,17 @@ def returnBBUStatus(output):
     BBUStatus = ""
     tmpstr = ""
     for line in output:
-        if re.match(r"^ *Battery Replacement required +:.*$", line.strip()):
-            tmpstr = line.split(":")[1].strip()
-            BBUStatus = re.sub(" +.*$", "", tmpstr)
-            break
+        if oldsyntax:
+            if re.match(r"^ *Battery Replacement required +:.*$", line.strip()):
+                tmpstr = line.split(":")[1].strip()
+                BBUStatus = re.sub(" +.*$", "", tmpstr)
+                break
+        else:
+            if re.match(r"^Replacement required .*$", line.strip()):
+                tmpstr = line.split(" ")
+                if len(tmpstr)>2:
+                    BBUStatus = tmpstr[len(tmpstr)-1]
+                    break
     if BBUStatus == "Yes":
         return str("REPL")
     else:
@@ -286,8 +336,14 @@ def returnBBUStatus(output):
 def returnArrayNumber(output):
     i = 0
     for line in output:
-        if re.match(r"^(CacheCade )?Virtual Drive:.*$", line.strip()):
-            i += 1
+        if oldsyntax:
+            if re.match(r"^(CacheCade )?Virtual Drive:.*$", line.strip()):
+                i += 1
+        else:
+            if re.match(r"^Virtual Drives .*$", line.strip()):
+                if line.find("=")>=0:
+                    i = int(line.split("=")[1].strip())
+                    break
     return i
 
 
@@ -323,7 +379,10 @@ def returnHBAInfo(table, output, controllerid):
     controllertemp = returnROCTemp(output)
     controllerbbu = returnBBUPresence(output)
     if controllerbbu == "Present":
-        cmd = "%s -AdpBbuCmd -GetBbuStatus -a%d -NoLog" % (megaclipath, controllerid)
+        if oldsyntax:
+            cmd = "%s -AdpBbuCmd -GetBbuStatus -a%d -NoLog" % (megaclipath, controllerid)
+        else:
+            cmd = "%s /c%d /BBU show all" % (megaclipath, controllerid)        
         output = getOutput(cmd)
         controllerbbu = returnBBUStatus(output)
 
@@ -649,6 +708,12 @@ def returnUnconfDiskInfo(output, controllerid):
 cmd = "%s -adpCount -NoLog" % (megaclipath)
 output = getOutput(cmd)
 controllernumber = returnControllerNumber(output)
+if not controllernumber:
+    cmd = "%s show ctrlcount" % (megaclipath)
+    output = getOutput(cmd)
+    controllernumber = returnControllerNumber(output)
+    if controllernumber:
+        oldsyntax = False
 
 bad = False
 
@@ -663,7 +728,10 @@ if printcontroller:
         mlen = 0
         hbainfo = []
         while controllerid < controllernumber:
-            cmd = "%s -AdpAllInfo -a%d -NoLog" % (megaclipath, controllerid)
+            if oldsyntax:
+                cmd = "%s -AdpAllInfo -a%d -NoLog" % (megaclipath, controllerid)
+            else:
+                cmd = "%s /c%d show all" % (megaclipath, controllerid)
             output = getOutput(cmd)
             returnHBAInfo(hbainfo, output, controllerid)
             controllerid += 1
@@ -700,7 +768,10 @@ if printarray:
     while controllerid < controllernumber:
         arrayindex = 0
 
-        cmd = "%s -LDInfo -lall -a%d -NoLog" % (megaclipath, controllerid)
+        if oldsyntax:
+            cmd = "%s -LDInfo -lall -a%d -NoLog" % (megaclipath, controllerid)
+        else:
+            cmd = "%s /c%d show" % (megaclipath, controllerid)
         output = getOutput(cmd)
         arraynumber = returnArrayNumber(output)
         # We need to explore each HBA to look for gaps in LD's
@@ -740,7 +811,10 @@ if printarray:
         output = getOutput(cmd)
         pcipath = returnHBAPCIInfo(output)
 
-        cmd = "%s -LDInfo -lall -a%d -NoLog" % (megaclipath, controllerid)
+        if oldsyntax:
+            cmd = "%s -LDInfo -lall -a%d -NoLog" % (megaclipath, controllerid)
+        else:
+            cmd = "%s /c%d show" % (megaclipath, controllerid)
         output = getOutput(cmd)
         arraynumber = returnArrayNumber(output)
         while arrayindex < arraynumber:
@@ -806,7 +880,10 @@ if printarray:
 
 controllerid = 0
 while controllerid < controllernumber:
-    cmd = "%s -PDGetNum -a%d -NoLog" % (megaclipath, controllerid)
+    if oldsyntax:
+        cmd = "%s -PDGetNum -a%d -NoLog" % (megaclipath, controllerid)
+    else:
+        cmd = "%s /c%d show" % (megaclipath, controllerid)
     output = getOutput(cmd)
     totaldrivenumber += returnTotalDriveNumber(output)
     controllerid += 1
@@ -822,7 +899,10 @@ if totaldrivenumber:
     controllerid = 0
     while controllerid < controllernumber:
         arrayid = 0
-        cmd = "%s -LDInfo -lall -a%d -NoLog" % (megaclipath, controllerid)
+        if oldsyntax:
+            cmd = "%s -LDInfo -lall -a%d -NoLog" % (megaclipath, controllerid)
+        else:
+            cmd = "%s /c%d show" % (megaclipath, controllerid)
         output = getOutput(cmd)
         arraynumber = returnArrayNumber(output)
         #### BUG: -LdPdInfo shows all PD on the adapter, not just for the LD we wanted..
@@ -853,7 +933,10 @@ if totaldrivenumber:
     while controllerid < controllernumber:
         arrayid = 0
 
-        cmd = "%s -LDInfo -lall -a%d -NoLog" % (megaclipath, controllerid)
+        if oldsyntax:
+            cmd = "%s -LDInfo -lall -a%d -NoLog" % (megaclipath, controllerid)
+        else:
+            cmd = "%s /c%d show" % (megaclipath, controllerid)
         output = getOutput(cmd)
         arraynumber = returnArrayNumber(output)
         #### BUG: -LdPdInfo shows all PD on the adapter, not just for said LD..
@@ -900,7 +983,10 @@ while controllerid < controllernumber:
     output = getOutput(cmd)
     totalconfdrivenumber += returnConfDriveNumber(controllerid, output)
 
-    cmd = "%s -PDGetNum -a%d -NoLog" % (megaclipath, controllerid)
+    if oldsyntax:
+        cmd = "%s -PDGetNum -a%d -NoLog" % (megaclipath, controllerid)
+    else:
+        cmd = "%s /c%d show" % (megaclipath, controllerid)
     output = getOutput(cmd)
     totaldrivenumber += returnTotalDriveNumber(output)
 
@@ -926,7 +1012,10 @@ if totalunconfdrivenumber:
     while controllerid < controllernumber:
         arrayid = 0
 
-        cmd = "%s -LDInfo -lall -a%d -NoLog" % (megaclipath, controllerid)
+        if oldsyntax:
+            cmd = "%s -LDInfo -lall -a%d -NoLog" % (megaclipath, controllerid)
+        else:
+            cmd = "%s /c%d show" % (megaclipath, controllerid)
         output = getOutput(cmd)
         arraynumber = returnArrayNumber(output)
         cmd = "%s -AdpGetPciInfo -a%d -NoLog" % (megaclipath, controllerid)
