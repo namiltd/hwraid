@@ -92,14 +92,14 @@ def which(program):
             os.environ["PATH"] += os.pathsep + "/opt/MegaRAID/perccli"
             os.environ["PATH"] += os.pathsep + "/opt/MegaRAID/storcli"
             os.environ["PATH"] += os.pathsep + "/opt/lsi/storcli"
-        os.environ["PATH"] += os.pathsep + os.path.dirname(os.path.realpath(sys.argv[0]))
-        for path in os.environ["PATH"].split(os.pathsep):
-            dbgprint("Looking in PATH " + str(path))
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                dbgprint('Found "' + program + '" at ' + exe_file)
-                return exe_file
+            os.environ["PATH"] += os.pathsep + os.path.dirname(os.path.realpath(sys.argv[0]))
+            for path in os.environ["PATH"].split(os.pathsep):
+                dbgprint("Looking in PATH " + str(path))
+                path = path.strip('"')
+                exe_file = os.path.join(path, program)
+                if is_exe(exe_file):
+                    dbgprint('Found "' + program + '" at ' + exe_file)
+                    return exe_file
     return None
 
 
